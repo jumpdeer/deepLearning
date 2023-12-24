@@ -2,7 +2,8 @@ import torch
 import torchvision.transforms as transforms
 from PIL import Image
 import csv
-from model import AlexNet
+from AlexNet import AlexNet
+import os
 
 
 def main():
@@ -22,14 +23,14 @@ def main():
     sum=0
     right = 0
     with torch.no_grad():
-        with open('Dataset/test_label.csv', 'r') as f:
+        with open(os.path.join('Dataset','test_label.csv'),'r') as f:
             csv_reader = csv.DictReader(f)
             for row in csv_reader:
                 sum+=1   # 总数加1
                 filename = row['imageName']
                 label = row['label']
 
-                im = Image.open('./Dataset/test_image/'+filename)
+                im = Image.open(os.path.join('Dataset','test_image',filename))
                 im = transform(im)    # [C, H, W]
                 im = torch.unsqueeze(im,dim=0)  # [N, C, H, W]
 

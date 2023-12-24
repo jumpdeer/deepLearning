@@ -3,7 +3,7 @@ import torch.nn.functional as F
 
 
 class AlexNet(nn.Module):
-    def __init__(self):
+    def __init__(self,num_classes=1000,init_weights=False):
         super(AlexNet,self).__init__()
         self.conv1 = nn.Conv2d(3,64,11,padding=2,stride=4)    # in:(224,224,3)     out:(55,55,64)
         self.pool1 = nn.MaxPool2d(3,2)      # in:(55,55,64)       out:(27,27,64)
@@ -37,3 +37,14 @@ class AlexNet(nn.Module):
         x = self.dense3(x)
 
         return x
+
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m,nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight,mode='fan_out',nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias,0)
+            elif isinstance(m,nn.Linear):
+                nn.init.normal_(m.weight,0,0.01)
+                nn.init.constant_(m.bias,0)

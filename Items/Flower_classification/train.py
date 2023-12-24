@@ -2,8 +2,9 @@ import torch.utils.data
 import torchvision.transforms as transforms
 from torch import nn, optim
 from MyDataset import FlowerSet
+import os
 
-from model import AlexNet
+from AlexNet import AlexNet
 
 
 
@@ -23,7 +24,7 @@ def main():
     net = AlexNet(num_classes=5,init_weights=True)
     net.to(device)
 
-    train_set = FlowerSet('Dataset/train_image/', './Dataset/train_label.csv', transform)
+    train_set = FlowerSet(os.path.join('Dataset','train_image/'), os.path.join('Dataset','train_label.csv'), transform)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=20, shuffle=True, num_workers=0, pin_memory=True)
 
 
