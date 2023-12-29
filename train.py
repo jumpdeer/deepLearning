@@ -8,7 +8,13 @@ def createParse():
     parser.add_argument('--batch_size', default=20, type=int, help='the batch size')
     parser.add_argument('--num_workers', default=0, type=int, help='number of workers')
     parser.add_argument('--epoch', default=5, type=int, help='number of training loops')
+    parser.add_argument('--seed', default=3407, type=int, help='random seed')
 
     args = parser.parse_args()
     return args
 
+def main():
+    args = createParse()
+
+if __name__ == '__main__':
+    main()
