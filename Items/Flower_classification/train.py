@@ -25,11 +25,11 @@ def main():
     net.to(device)
 
     train_set = FlowerSet(os.path.join('Dataset','train_image/'), os.path.join('Dataset','train_label.csv'), transform)
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=20, shuffle=True, num_workers=0, pin_memory=True)
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=30, shuffle=True, num_workers=0, pin_memory=True)
 
 
     loss_function = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(lr=0.0002,params=net.parameters())
+    optimizer = optim.Adam(lr=0.00015,params=net.parameters())
 
     for epoch in range(100):
         print(f"第{epoch}轮训练")
@@ -43,7 +43,6 @@ def main():
             optimizer.zero_grad()
 
             outputs = net(inputs)
-            print(outputs)
             loss = loss_function(outputs, labels)
             loss.backward()
             optimizer.step()

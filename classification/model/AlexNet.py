@@ -15,7 +15,7 @@ class AlexNet(nn.Module):
         self.pool3 = nn.MaxPool2d(3,2)                  # in:(13,13,256)          out:(6,6,256)
         self.dense1 = nn.Linear(256*6*6,4096)
         self.dense2 = nn.Linear(4096,1024)
-        self.dense3 = nn.Linear(1024,75)
+        self.dense3 = nn.Linear(1024,num_classes)
 
     def forward(self,x):
         x = F.relu(self.conv1(x))
