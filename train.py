@@ -1,4 +1,5 @@
 import argparse
+from classification.model.LeNet import LeNet
 
 def createParse():
     parser = argparse.ArgumentParser(description="training Hyperparameters")
