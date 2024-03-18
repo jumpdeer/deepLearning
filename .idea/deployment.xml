@@ -1,25 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@region-41.seetacloud.com:38529 password">
+  <component name="PublishConfigData" autoUpload="Always" serverName="学校GPU服务器">
     <serverData>
-      <paths name="AutoDL">
+      <paths name="学校GPU服务器">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="GPU_service">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="root@region-41.seetacloud.com:38529 password">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/tmp/pycharm_project_997" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

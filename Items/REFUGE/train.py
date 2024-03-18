@@ -2,8 +2,12 @@ import torch.utils.data
 import numpy as np
 from torch import nn,optim
 import torch.nn.functional as F
-from model import FCN8s
-from dataSet import VOCset
+from Unet import Unet
+from REFUGE_DataSet import REFUGE_Dataset
+from torchvision.transforms import transforms
+import torchvision.transforms.functional
+
+
 
 def Iou(target_all, pred_all,n_class):
     """
@@ -35,20 +39,35 @@ def Iou(target_all, pred_all,n_class):
 
     return np.mean(iou)
 
+def cropOutputImage(image,ori_size):
+    new_image = torchvision.transforms.functional.center_crop(image,ori_size)
+    return new_image
+
 def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225])
+        ]
+    )
+
     print("using {} device.".format(device))
 
-    train_set = VOCset('archive/segment_voc2012/image/', './archive/segment_voc2012/mask_Segmentation/', './archive/segment_voc2012/train.txt', 22)
-    train_loader = torch.utils.data.DataLoader(train_set,batch_size=8,shuffle=True,num_workers=0,pin_memory=True)
+    train_set = REFUGE_Dataset('./data/Train400/Data-Training400/','./data/Train400/Mask-Training400/', 3,transform)
+    train_loader = torch.utils.data.DataLoader(train_set,batch_size=1,shuffle=True,num_workers=0,pin_memory=True)
 
-    net = FCN8s(num_classes=22)
+
+
+    net = Unet(in_channels=3,out_channels=3)
+    net.load_state_dict(torch.load('Unet.pth'))
     net.to(device)
 
     loss_function = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(net.parameters(),lr=0.0005)
+    optimizer = optim.Adam(net.parameters(),lr=0.000001)
 
     net.train()
 
@@ -62,6 +81,7 @@ def main():
             optimizer.zero_grad()
 
             outputs = net(inputs)
+
             outputs = F.log_softmax(outputs, dim=1) #
 
             pre_lab = torch.argmax(outputs, 1)
@@ -74,12 +94,13 @@ def main():
 
             running_loss += loss.item()
 
-            PA = torch.sum(pre_lab == labels.data)/(8*320*480)
+            PA = torch.sum(pre_lab == labels.data)/(2048*2048)
 
-            print('epoch:{} | step:{} | val loss:{:.5f} | PA:{:.5f} | MIOU:{:.5f}'.format(epoch, step, loss.item(),PA, Iou(pre_lab,labels,22)))
+            print('epoch:{} | step:{} | val loss:{:.5f} | PA:{:.5f} | MIOU:{:.5f}'.format(epoch, step, loss.item(),PA, Iou(pre_lab,labels,3)))
 
 
-    save_path = './FCN8s.pth'
+
+    save_path = './Unet.pth'
     torch.save(net.state_dict(),save_path)
 
 if __name__ == '__main__':
