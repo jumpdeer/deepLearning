@@ -1,5 +1,4 @@
 import cv2
-
 from Unet import Unet
 import numpy as np
 import torch
@@ -7,8 +6,9 @@ import os
 from PIL import Image
 import torch.nn.functional as F
 from torchvision.transforms import transforms
-import torchvision.transforms.functional
-from torchvision.utils import save_image
+from albumentations import Resize
+
+
 
 def Iou(target_all, pred_all,n_class):
     """
@@ -40,25 +40,9 @@ def Iou(target_all, pred_all,n_class):
 
     return np.mean(iou)
 
-def cropOutputImage(image,ori_size):
-    new_image = torchvision.transforms.functional.center_crop(image,ori_size)
-    return new_image
-
-def letterbox_image(image, size):
-    iw, ih = image.size
-    w, h = size
-    scale = min(w / iw, h / ih)
-    nw = int(iw * scale)
-    nh = int(ih * scale)
-
-    image = image.resize((nw, nh), Image.BICUBIC)
-    new_image = Image.new('RGB', size, (128, 128, 128))
-    new_image.paste(image, ((w - nw) // 2, (h - nh) // 2))
-    return new_image
-
 def main():
     colormap = np.array([
-        (255,255,255),
+        (255,255,0),
         (255,0,0),
         (0,128,0)
     ])
@@ -76,26 +60,33 @@ def main():
 
     for path, dir_list, file_list in os.walk('./data/REFUGE-Test400/Test400'):
         for item in file_list:
-            img = Image.open(os.path.join('./data/REFUGE-Test400/Test400',item))
-            img = letterbox_image(img, [2444,2444])
+            img = cv2.imread(os.path.join('./data/REFUGE-Test400/Test400',item))
+
+            img = Resize(p=1,width=2048,height=2048)(image=img)['image']
 
             img = transform(img)
             img = torch.unsqueeze(img,dim=0)
 
             output = net(img)
-            output = cropOutputImage(output,[1634,1634])
 
-            predict = torch.argmax(F.log_softmax(output, dim=1), 1)
+            predict = torch.argmax(F.softmax(output,dim=1), 1)
             predict = predict.numpy()
 
-            RGB_img = np.zeros(shape=(predict.shape[1],predict.shape[2],3),dtype=np.uint8)
-            for i in range(colormap.shape[0]):
-                index = np.where(np.all(predict == i, axis=-1))
-                for j in range(RGB_img.shape[0]):
-                    RGB_img[index,j] = colormap[i]
+            print(np.sum(predict==0))
+            print(np.sum(predict==1))
+            print(np.sum(predict==2))
 
+            RGB_img = np.zeros(shape=(predict.shape[1],predict.shape[2],3),dtype=np.uint8)
+            for i in range(RGB_img.shape[0]):   # 遍历颜色表
+                for j in range(RGB_img.shape[1]):
+                    index = predict[0,i,j]
+                    RGB_img[i,j]=colormap[index]
+
+            print(RGB_img.shape)
+            print(RGB_img)
             RGB_img = Image.fromarray(RGB_img)
-            RGB_img.show()
+            RGB_img.save('./pre1.jpg')
+
 
 if __name__=='__main__':
     main()

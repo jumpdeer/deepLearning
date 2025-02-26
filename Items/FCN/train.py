@@ -41,10 +41,10 @@ def main():
 
     print("using {} device.".format(device))
 
-    train_set = VOCset('archive/segment_voc2012/image/', './archive/segment_voc2012/mask_Segmentation/', './archive/segment_voc2012/train.txt', 22)
+    train_set = VOCset('archive/segment_voc2012/image/', './archive/segment_voc2012/mask_Segmentation/', './archive/segment_voc2012/train.txt', 21)
     train_loader = torch.utils.data.DataLoader(train_set,batch_size=8,shuffle=True,num_workers=0,pin_memory=True)
 
-    net = FCN8s(num_classes=22)
+    net = FCN8s(num_classes=21)
     net.to(device)
 
     loss_function = nn.CrossEntropyLoss()

@@ -1,9 +1,6 @@
-import numpy as np
-import pandas as pd
-from torch.utils.data import Dataset
-from albumentations import PadIfNeeded,CenterCrop,resize
 import torch
-from PIL import Image
+from torch.utils.data import Dataset
+from albumentations import Resize
 import cv2
 import os
 
@@ -16,6 +13,7 @@ class REFUGE_Dataset(Dataset):
         self.num_classes = num_classes
         self.datalist,self.labellist = self._load_data()
         self.transform = transform
+        self.size = 2048
 
     def _load_data(self):
         datalist = []
@@ -36,21 +34,16 @@ class REFUGE_Dataset(Dataset):
 
     def __getitem__(self, index):
 
-        img = Image.open(self.datalist[index])
-        label = Image.open(self.labellist[index])
+        img = cv2.imread(self.datalist[index])
+        label = cv2.imread(self.labellist[index],cv2.IMREAD_UNCHANGED)
 
-        w, h = img.size
-        size = self._calculateSize_(w,h)
-        if max(w,h) < size:
-            result = PadIfNeeded(p=1,min_width=size,min_height=size)(image=img,mask=label)
-        else :#min(w,h) > size:
-            result = CenterCrop(p=1,height=size,width=size)(image=img,mask=label)
-
+        result = Resize(height=self.size,width=self.size)(image=img,mask=label)
 
         img = result['image']
         label = result['mask']
 
         img = self.transform(img)
+        label = torch.from_numpy(label).long()
 
         return img,label
 

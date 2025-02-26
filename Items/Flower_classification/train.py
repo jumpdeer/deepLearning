@@ -4,7 +4,7 @@ from torch import nn, optim
 from MyDataset import FlowerSet
 import os
 
-from AlexNet import AlexNet
+from model.classification.ResNet import ResNet50
 
 
 
@@ -14,14 +14,15 @@ def main():
     print(f"using {device}")
 
     transform = transforms.Compose(
-        [transforms.Resize((227, 227)),
+        [transforms.Resize((224, 224)),
          transforms.ToTensor(),
          transforms.Normalize(mean=[0.485, 0.456, 0.406],
                               std=[0.229, 0.224, 0.225])
          ]
     )
 
-    net = AlexNet(num_classes=5,init_weights=True)
+    # net = AlexNet(num_classes=5,init_weights=True)
+    net = ResNet50(num_classes=5,init_weights=True)
     net.to(device)
 
     train_set = FlowerSet(os.path.join('Dataset','train_image/'), os.path.join('Dataset','train_label.csv'), transform)
@@ -50,7 +51,7 @@ def main():
             running_loss += loss.item()
 
 
-    save_path = 'Alexnet.pth'
+    save_path = 'Resnet50.pth'
     torch.save(net.state_dict(),save_path)
 
 if __name__ == '__main__':

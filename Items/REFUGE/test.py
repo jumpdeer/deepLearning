@@ -93,8 +93,30 @@ class MyTestCase(unittest.TestCase):
         #         RGB_img[index]=colormap[i]
         #
         # img = Image.fromarray(RGB_img)
-        # img.save('test.jpg')
+        # img.save('test.png')
 
+
+    def testTensordot(self):
+        arr1 = torch.tensor([[[1,2,0,1,1],
+                             [2,1,0,0,0],
+                             [0,1,1,0,0]]])
+        # arr2 = torch.tensor([[[[0.1,0.2,0.3,0.4,0.5]]],[],[]])
+        print(arr1.shape)
+        arr2 = F.one_hot(arr1)
+        print(arr2)
+        print(arr2.shape)
+        arr2 = arr2.permute(0,3,1,2)  # 交换维度，onehot编码之后的交换
+        print(arr2)
+        print(arr2.shape)
+        arr2 = arr2.reshape(1,-1)
+        print(arr2)
+        print(arr2.shape)
+
+    def testImg(self):
+        img = cv2.imread('./data/Train400/Mask-Training400/g0001.png',cv2.COLOR_BGR2GRAY)
+        print(np.sum(img==0))
+        print(np.sum(img==1))
+        print(np.sum(img==2))
 
 if __name__ == '__main__':
     unittest.main()

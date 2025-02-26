@@ -1,7 +1,9 @@
 import torch.utils.data
 import numpy as np
 from torch import nn,optim
+from DiceLoss import DiceLoss
 import torch.nn.functional as F
+from lossFunction.FocalLoss import CrossEntropyFocalLoss
 from Unet import Unet
 from REFUGE_DataSet import REFUGE_Dataset
 from torchvision.transforms import transforms
@@ -57,17 +59,18 @@ def main():
 
     print("using {} device.".format(device))
 
-    train_set = REFUGE_Dataset('./data/Train400/Data-Training400/','./data/Train400/Mask-Training400/', 3,transform)
+    train_set = REFUGE_Dataset('./data/Train400/AugmentData-Training400/','./data/Train400/AugmentMask-Training400/', 3,transform)
     train_loader = torch.utils.data.DataLoader(train_set,batch_size=1,shuffle=True,num_workers=0,pin_memory=True)
 
 
 
     net = Unet(in_channels=3,out_channels=3)
-    net.load_state_dict(torch.load('Unet.pth'))
     net.to(device)
 
-    loss_function = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(net.parameters(),lr=0.000001)
+    # loss_function = nn.CrossEntropyLoss()
+    loss_function = DiceLoss()
+    # loss_function = CrossEntropyFocalLoss([2,0.5,0.5],0.5,'mean',device)
+    optimizer = optim.Adam(net.parameters(),lr=0.0001)
 
     net.train()
 
@@ -82,11 +85,16 @@ def main():
 
             outputs = net(inputs)
 
-            outputs = F.log_softmax(outputs, dim=1) #
-
+            outputs = F.log_softmax(outputs, dim=1) #结果输出值尺寸为(1,3,2048,2048)  标签尺寸为(1,2048,2048)
+            #
             pre_lab = torch.argmax(outputs, 1)
+            # print(pre_lab.shape)
 
             loss = loss_function(outputs,labels)
+
+            # print(loss)
+
+            loss.requires_grad_(True)
 
             loss.backward()
 
