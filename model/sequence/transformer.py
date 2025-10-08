@@ -1,97 +1,99 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
-from torch.optim import Adam
-from torch.utils.data import DataLoader, TensorDataset
-
-import lightning as L
-
-
-# 位置编码
-class PositionEncoding(nn.Module):
-    def __init__(self, d_model=2, max_len=6):
-        super(PositionEncoding, self).__init__()
-
-        pe = torch.zeros(max_len, d_model)
-
-        position = torch.arange(start=0, end=max_len, step=1).float().unsqueeze(1)
-        embedding_index = torch.arange(start=0, end=d_model, step=2).float()
-
-        div_term = 1/torch.tensor(10000.0)**(embedding_index / d_model)
-
-
-        pe[:,0::2] = torch.sin(position * div_term)
-        pe[:,1::2] = torch.cos(position * div_term)
-
-        self.register_buffer('pe', pe)
-
-    def forward(self, word_embeddings):
-        return word_embeddings * self.pe[:word_embeddings.size(0), :]
+import math
+import torch.optim as optim
 
 class Attention(nn.Module):
-    def __init__(self, d_model=2):
-        super().__init__()
+    # d_model代表隐特征维度，d_head表示每个头的维度，n_heads表示有多少个头, dff表示前馈神经网络的维度, dropout表示dropout的概率
+    def __init__(self, config):
+        super(Attention, self).__init__()
 
-        self.W_q = nn.Linear(in_features=d_model, out_features=d_model, bias=False)
-        self.W_k = nn.Linear(in_features=d_model, out_features=d_model, bias=False)
-        self.W_v = nn.Linear(in_features=d_model, out_features=d_model, bias=False)
+        self.d_model = config["d_model"]
+        self.n_heads = config["n_heads"]
+        self.d_head = self.d_model // config["n_heads"]
 
-        self.row_dim = 0
-        self.col_dim = 1
+        self.W_Q = nn.Linear(self.d_model, self.d_model)
+        self.W_K = nn.Linear(self.d_model, self.d_model)
+        self.W_V = nn.Linear(self.d_model, self.d_model)
 
-    def forward(self, encodings_for_q, encodings_for_k, encodings_for_v, mask=None):
-        # 接受不同的输入，Q，K可以来自其他编码器的输入
-        q = self.W_q(encodings_for_q)
-        k = self.W_k(encodings_for_k)
-        v = self.W_v(encodings_for_v)
+        self.softmax = nn.Softmax(dim=-1)  # 沿着列的方向去做softmax，即对于每一行，其所有列的数加起来为1
 
-        sims = torch.matmul(q, k.transpose(dim0=self.row_dim, dim1=self.col_dim))
+        self.norm = nn.LayerNorm(self.d_model)
 
-        scaled_sims = sims / torch.tensor(k.size(self.col_dim)**0.5)
+        self.W_O = nn.Linear(self.d_model, self.d_model)
 
-        if mask is not None:
-            scaled_sims = scaled_sims.masked_fill(mask=mask, value=-1e9)
+        self.is_mask = config["is_mask"]
+        self.dropout = nn.Dropout(config["dropout"])
 
-        attention_percents = F.softmax(scaled_sims, dim=self.col_dim)
+    def forward(self, x):
 
-        attention_scores = torch.matmul(attention_percents, v)
+        batch_size = x.shape[0]
+        N = x.shape[1]
 
-        return attention_scores
+        # 计算Q、K、V矩阵
+        Q = self.W_Q(x).reshape(batch_size, N, self.n_heads, self.d_head).transpose(1,2)
+        K = self.W_K(x).reshape(batch_size, N, self.n_heads, self.d_head).transpose(1,2)
+        V = self.W_V(x).reshape(batch_size, N, self.n_heads, self.d_head).transpose(1,2) # [batch_size, n_heads, N, d_head]
 
-class DecoderOnlyTransformer(L.LightningModule):
-    def __init__(self,num_tokens = 4, d_model=2, max_len=6):
-        super().__init__()
-        self.we = nn.Embedding(num_embeddings=num_tokens, embedding_dim=d_model)
 
-        self.pe = PositionEncoding(d_model=d_model, max_len=max_len)
+        # 计算QK的分数
+        QK_scores = Q @ K.transpose(-2,-1)  # [batch_size, n_heads, N, N]
 
-        self.self_attention = Attention(d_model=d_model)
-        self.fc_layer = nn.Linear(in_features=d_model, out_features=num_tokens)
+        # 根据公式进行缩放
+        scaled_scores = QK_scores / math.sqrt(self.d_head)
 
-        self.loss = nn.CrossEntropyLoss()
+        # 如果需要计算mask
+        if self.is_mask:
+            # 计算上三角掩码
+            up_triangle_mask = torch.triu(torch.ones(N, N, device=x.device) * float('-inf'), diagonal=1)  # 需要注意设备问题，需要创建在与x同在的设备上
+            masked_scores = scaled_scores + up_triangle_mask
+        else:
+            masked_scores = scaled_scores
 
-    def forward(self, token_ids):
-        word_embeddings = self.we(token_ids)
-        position_encoded = self.pe(word_embeddings)
+        # 进行Softmax操作
+        attention_weights = self.softmax(masked_scores)
 
-        mask = torch.tril(torch.ones((token_ids.size(dim=0), token_ids.size(dim=0))))
-        mask = mask == 0
+        # 对注意力权重进行一个dropout
+        attention_weights = self.dropout(attention_weights)
 
-        self_attention_values = self.self_attention(position_encoded,position_encoded,position_encoded,mask)
+        # 进行最后的注意力分数计算操作
+        attention_scores = attention_weights @ V  # [batch_size, n_heads, N, d_head]
 
-        residual_connection_values = position_encoded + self_attention_values
+        # 对多头注意力进行拼接
+        # attention_scores = attention_scores.transpose(-2, -3).reshape(batch_size, N, self.d_model)
+        # 为什么不适用上面这一行，因为transpose操作同长不会在内存中移动数据，而是改变张量的"步长"，告诉pytorch如何索引数据。这可能导致张量在内存中的布局变得不连续
+        # view()要求张量必须是内存连续的才能执行操作，不然会报错。而reshape()会暗中创建一个数据的副本，使其变得连续，然后再执行变形
+        # 这样可以避免一些难以察觉的性能问题或bug
+        attention_scores = attention_scores.transpose(-2, -3).contiguous().view(batch_size, N, self.d_model) # [batch_size, N, d_model]
 
-        fc_layer_output = self.fc_layer(residual_connection_values)
+        # 使用一个投影层将不同子空间的信息进行融合混合
+        attention_scores = self.W_O(attention_scores)
 
-        return fc_layer_output
+        # 对最后的注意力分数进行残差连接
+        output_scores = attention_scores + x
 
-    def configure_optimizers(self):
-        return Adam(self.parameters(), lr=0.05)
+        output_scores = self.norm(output_scores)
 
-    def training_step(self, batch, batch_idx):
-        input_tokens, labels = batch
-        output = self.forward(input_tokens[0])
-        loss = self.loss(output, labels[0])
+        return output_scores  # [batch_size, N, d_model]
 
-        return loss
+
+class FeedForward(nn.Module):
+    def __init__(self, config):
+        super(FeedForward, self).__init__()
+        self.d_model = config["d_model"]
+        self.dff = config["dff"]   # dff通常是d_model的四倍
+
+        self.feed1 = nn.Linear(self.d_model, self.dff)
+        self.activation = getattr(nn, config["activation"])()  # 可以从config中直接获取类，采用反射机制, 需要在后面再加一个括号,
+        self.feed2 = nn.Linear(self.dff, self.d_model)         # 返回的才是一个激活函数实例，不然返回的是类名, 在下面使用forward的语句相当于给x赋予一个激活函数实例而不是调用
+
+    def forward(self, x):
+        x = self.feed1(x)
+        x = self.activation(x)
+        x = self.feed2(x)
+
+        return x
+
+
+
+

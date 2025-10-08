@@ -1,0 +1,10 @@
+{
+  "TestTransformer": {
+    "d_model": 512,
+    "n_heads": 8,
+    "is_mask": true,
+    "dropout": 0.5,
+    "activation": "GELU",
+    "dff": 2048
+  }
+}
