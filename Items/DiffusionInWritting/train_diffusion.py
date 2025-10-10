@@ -17,13 +17,14 @@ device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.i
 image_size = 64
 in_channels = 3
 n_epochs = 1000
-batch_size = 32
+batch_size = 80
 lr = 1e-4
 num_timesteps = 1000
 save_checkpoint_interval = 100
 
 # WandB 初始化
 run = wandb.init(
+    mode="offline",
     project="diffusion_from_scratch",
     config={
         "batch_size": batch_size,
@@ -40,14 +41,16 @@ diffusion_model = UNet_Transformer(in_channels=in_channels).to(device)
 noise_scheduler = NoiseScheduler(num_timesteps=num_timesteps, device=device)
 
 # 加载 CLIP 模型
-tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
-text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
+model_local_path = "./offline_assets/openai-clip-vit-base-patch32"
+tokenizer = CLIPTokenizer.from_pretrained(model_local_path)
+text_encoder = CLIPTextModel.from_pretrained(model_local_path).to(device)
 
 # WandB 监控
 wandb.watch(diffusion_model, log_freq=100)
 
 # 加载数据集
-dataset = load_dataset("svjack/pokemon-blip-captions-en-zh", split="train")
+pokemon_local_path = "./offline_assets/pokemon-blip-captions-en-zh"
+dataset = load_dataset(pokemon_local_path, split="train")
 
 # 数据预处理
 preprocess = transforms.Compose(

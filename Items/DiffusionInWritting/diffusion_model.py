@@ -254,12 +254,18 @@ class UNet_Transformer(nn.Module):
 
     def get_sinusoidal_position_embedding(self, timesteps, embedding_dim):
         half_dim = embedding_dim // 2
+
+        # 使用公式记录频率随着维度递增的尺度关系
         emb = math.log(10000) / (half_dim - 1)
         emb = torch.exp(torch.arange(half_dim, device=timesteps.device) * -emb)
-        emb = timesteps[:, None] * emb[None, :]
-        emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=-1)
+        emb = timesteps[:, None] * emb[None, :]  # [Batch_size, half_dim]
+
+
+        emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=-1)  # [Batch_size, embedding_dim]
         if embedding_dim % 2 == 1:  # zero pad if embedding_dim is odd
             emb = torch.nn.functional.pad(emb, (0, 1, 0, 0))
+
+        # 返回的该矩阵不用于训练，因为使用固定数学公式进行计算的
         return emb
 
     def _down_block(self, in_channels, out_channels, time_dim, self_attn=False, cross_attn=False, num_heads=1, context_dim=None):
